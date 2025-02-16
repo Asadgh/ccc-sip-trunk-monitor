@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Center Monitor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.45.1/apexcharts.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f5f6fa; padding: 20px; }
+        .dashboard { max-width: 1400px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .title { color: #2d3436; font-size: 24px; }
+        .server-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .server-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s; }
+        .server-card:hover { transform: translateY(-2px); }
+        .server-name { font-size: 18px; margin-bottom: 10px; color: #2d3436; }
+        .server-ip { color: #636e72; font-size: 14px; margin-bottom: 10px; }
+        .status { display: flex; align-items: center; gap: 8px; }
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; }
+        .status-active { background-color: #00b894; }
+        .status-inactive { background-color: #d63031; }
+        .status-warning { background-color: #fdcb6e; }
+        .chart-container { background: white; border-radius: 10px; padding: 20px; margin-bottom: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; min-height: 400px; }
+        .chart-wrapper { position: absolute; top: 80px; left: 20px; right: 20px; bottom: 20px; }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .chart-controls { display: flex; gap: 15px; align-items: flex-start; }
+        .time-filter select, .time-filter input { padding: 8px; border: 1px solid #dfe6e9; border-radius: 5px; font-size: 14px; }
+        .server-filter-container { position: relative; min-width: 200px; }
+        .server-filter-button { padding: 8px 12px; border: 1px solid #dfe6e9; border-radius: 5px; background: white; font-size: 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .server-filter-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #dfe6e9; border-radius: 5px; margin-top: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 1000; display: none; }
+        .server-filter-dropdown.active { display: block; }
+        .server-filter-search { padding: 8px; border-bottom: 1px solid #dfe6e9; }
+        .server-filter-search input { width: 100%; padding: 8px; border: 1px solid #dfe6e9; border-radius: 5px; font-size: 14px; }
+        .server-filter-options { max-height: 200px; overflow-y: auto; }
+        .server-filter-option { padding: 8px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+        .server-filter-option:hover { background: #f5f6fa; }
+        .server-filter-option input[type="checkbox"] { margin: 0; }
+        .server-filter-footer { padding: 8px; border-top: 1px solid #dfe6e9; display: flex; justify-content: space-between; }
+        .apply-filter { padding: 6px 12px; background: #0984e3; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .apply-filter:hover { background: #0873c7; }
+        .console-container { background: #2d3436; color: #dfe6e9; border-radius: 10px; padding: 20px; height: 300px; }
+        .console-header { margin-bottom: 15px; color: #74b9ff; font-size: 18px; font-weight: 500; }
+        .console { height: calc(100% - 35px); overflow-y: auto; font-family: 'Courier New', Courier, monospace; }
+        .log-entry { margin-bottom: 8px; font-size: 14px; }
+        .log-warning { color: #fdcb6e; }
+        .log-error { color: #ff7675; }
+        .log-timestamp { color: #74b9ff; margin-right: 8px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+        .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 10px; min-width: 400px; }
+        .modal-header { margin-bottom: 20px; }
+        .modal-body { margin-bottom: 20px; }
+        .datetime-inputs { display: flex; flex-direction: column; gap: 10px; }
+        .datetime-input { padding: 8px; border: 1px solid #dfe6e9; border-radius: 5px; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
+        .modal-btn { padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; }
+        .modal-btn-primary { background: #0984e3; color: white; }
+        .modal-btn-secondary { background: #dfe6e9; }
+        .control-button { padding: 8px 16px; background: #0984e3; color: white; border: none; border-radius: 5px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .control-button:hover { background: #0873c7; }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1 class="title">Call Center Monitor</h1>
+            <div class="refresh-info">Last updated: <span id="last-update">--</span></div>
+        </div>
+
+        <div class="server-grid" id="serverGrid"></div>
+
+        <div class="chart-container">
+            <div class="chart-header">
+                <h2>Status History</h2>
+                <div class="chart-controls">
+                    <div class="time-filter">
+                        <select id="time-range">
+                            <option value="24h">Last 24 hours</option>
+                            <option value="7d">Last 7 days</option>
+                            <option value="30d">Last 30 days</option>
+                            <option value="custom">Custom range</option>
+                        </select>
+                    </div>
+                    <div class="server-filter-container">
+                        <button class="server-filter-button">
+                            <span>All selected</span>
+                            <span>▼</span>
+                        </button>
+                        <div class="server-filter-dropdown">
+                            <div class="server-filter-search">
+                                <input type="text" placeholder="Search...">
+                            </div>
+                            <div class="server-filter-options">
+                                <label class="server-filter-option">
+                                    <input type="checkbox" value="all" checked>
+                                    (Select All)
+                                </label>
+                            </div>
+                            <div class="server-filter-footer">
+                                <span>0 items selected</span>
+                                <button class="apply-filter">Apply</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="exportData" class="control-button">
+                        <i class="fas fa-download"></i>
+                        Export
+                    </button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <div id="statusChart"></div>
+            </div>
+        </div>
+
+        <div class="console-container">
+            <h2 class="console-header">System Logs</h2>
+            <div class="console" id="consoleLogs"></div>
+        </div>
+
+        <div id="dateRangeModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Select Date Range</h3>
+                </div>
+                <div class="modal-body">
+                    <div class="datetime-inputs">
+                        <input type="datetime-local" id="start-datetime" class="datetime-input">
+                        <input type="datetime-local" id="end-datetime" class="datetime-input">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="modal-btn modal-btn-secondary" id="cancelDateRange">Cancel</button>
+                    <button class="modal-btn modal-btn-primary" id="applyDateRange">Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        const COUNTRY_COLORS = {
+            'RW': '#00b894',
+            'GH': '#fdcb6e',
+            'NG': '#0984e3',
+            'CI': '#d63031',
+            'KE': '#6c5ce7'
+        };
+
+        async function initializeDashboard() {
+            await updateServerStatus();
+            await initializeServerFilter();
+            await updateChart();
+            await updateLogs();
+            setupEventListeners();
+            setInterval(updateServerStatus, 30000);
+            setInterval(updateChart, 60000);
+            setInterval(updateLogs, 60000);
+        }
+
+        async function updateServerStatus() {
+            try {
+                const response = await fetch('/api/servers/status');
+                const servers = await response.json();
+                
+                const serverGrid = document.getElementById('serverGrid');
+                serverGrid.innerHTML = servers.map(server => `
+                    <div class="server-card">
+                        <h2 class="server-name">${server.country}</h2>
+                        <div class="server-ip">${server.partner}</div>
+                        <div class="status">
+                            <div class="status-indicator 
+                                ${server.status === 'Active' ? 'status-active' : 'status-inactive'}
+                                ${server.warning ? 'status-warning' : ''}"
+                                ${server.stale ? 'status-stale' : ''}"></div>
+                            <span>${server.stale ? 'Stale' : server.warning ? 'High Latency' : server.status}</span>
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('last-update').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch (error) {
+                console.error('Error updating server status:', error);
+                document.getElementById('serverGrid').innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #d63031;">
+                        <h2 style="margin-top: 10px; padding: 6px 12px; background: red; color: white;">Error Loading Data!</h2>
+                        <p>Could not fetch realtime SIP trunk information.<br>Contact Support if this persists!</p>
+                    </div>
+                `;
+            }
+        }
+
+        function initializeChart() {
+            const options = {
+                series: [],
+                chart: {
+                    type: 'line',
+                    height: '100%',
+                    animations: {
+                        enabled: true,
+                        easing: 'linear',
+                        dynamicAnimation: {
+                            speed: 1000
+                        }
+                    },
+                    toolbar: {
+                        show: true,
+                        tools: {
+                            download: true,
+                            selection: true,
+                            zoom: true,
+                            zoomin: true,
+                            zoomout: true,
+                            pan: true,
+                            reset: true
+                        }
+                    }
+                },
+                stroke: {
+                    curve: 'straight',
+                    width: 2
+                },
+                markers: {
+                    size: 0,
+                    hover: {
+                        size: 6
+                    }
+                },
+                xaxis: {
+                    type: 'datetime',
+                    labels: {
+                        datetimeUTC: false,
+                        datetimeFormatter: {
+                            year: 'yyyy',
+                            month: 'MMM yyyy',
+                            day: 'dd MMM',
+                            hour: 'HH:mm'
+                        }
+                    }
+                },
+                yaxis: {
+                    title: {
+                        text: 'Latency (ms)'
+                    },
+                    min: 0
+                },
+                tooltip: {
+                    shared: true,
+                    x: {
+                        format: 'dd MMM yyyy HH:mm'
+                    },
+                    y: {
+                        formatter: function(value) {
+                            return value === null ? 'No response' : value.toFixed(1) + ' ms';
+                        }
+                    }
+                },
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'left'
+                },
+                grid: {
+                    padding: {
+                        right: 30
+                    }
+                },
+                annotations: {
+                    yaxis: [
+                        {
+                            y: 400,
+                            borderColor: "black",
+                            label: {
+                                text: "High Latency",
+                                style: {
+                                    color: "black"
+                                }
+                            },
+                            strokeDashArray: 5
+                        }
+                    ]
+                }
+            };
+
+            chart = new ApexCharts(document.querySelector("#statusChart"), options);
+            chart.render();
+        }
+
+        async function updateChart() {
+            try {
+                // Get the time range and build query parameters
+                let timeRange = document.getElementById('time-range').value;
+                let params = new URLSearchParams();
+        
+                if (timeRange === 'custom') {
+                    const startDate = document.getElementById('start-datetime').value;
+                    const endDate = document.getElementById('end-datetime').value;
+                    if (!startDate || !endDate) {
+                        console.error('Custom date range is missing start or end date');
+                        return;
+                    }
+                    params.append('start', startDate);
+                    params.append('end', endDate);
+                    params.append('range', 'custom');
+                } else {
+                    params.append('range', timeRange);
+                }
+        
+                // Append selected countries as query parameters
+                const selectedServers = getSelectedServers(); // Make sure this returns an array of country codes/names
+                selectedServers.forEach(country => params.append('country', country));
+        
+                // Fetch the ping data from your API endpoint
+                const response = await fetch(`/api/ping-data?${params}`);
+                const data = await response.json();
+        
+                // Process results into a format suitable for ApexCharts
+                const series = Object.keys(data)
+                    .filter(country => selectedServers.includes(country))
+                    .map(country => {
+                        const rawData = data[country].latency.map((value, index) => ({
+                            x: new Date(data[country].timestamps[index]).getTime(),
+                            y: value
+                        }));
+        
+                        // Insert null for time gaps greater than 5 minutes (300,000 ms)
+                        const processedData = [];
+                        for (let i = 0; i < rawData.length; i++) {
+                            if (i > 0) {
+                                const timeDiff = rawData[i].x - rawData[i - 1].x;
+                                if (timeDiff > 5 * 60 * 1000) {
+                                    processedData.push({ x: rawData[i].x - 1, y: null }); // Insert a gap
+                                }
+                            }
+                            processedData.push(rawData[i]);
+                        }
+        
+                        return {
+                            name: country,
+                            data: processedData,
+                            color: COUNTRY_COLORS[country]
+                        };
+                    });
+        
+                // Update the chart series with the new data
+                chart.updateSeries(series);
+        
+                // Optionally, update the x-axis options if needed based on your time range
+                const unit = getTimeUnit();
+                const format = unit === 'hour' ? 'HH:mm' : unit === 'day' ? 'dd MMM' : 'MMM yyyy';
+                chart.updateOptions({
+                    xaxis: {
+                        labels: {
+                            datetimeFormatter: {
+                                hour: format
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error updating chart:', error);
+            }
+        }
+        
+            
+        async function updateLogs() {
+            try {
+                const response = await fetch('/api/logs?limit=10');
+                const logs = await response.json();
+                
+                const logContainer = document.getElementById('consoleLogs');
+                logContainer.innerHTML = logs.map(log => `
+                    <div class="log-entry ${log.level === 'ERROR' ? 'log-error' : log.level === 'WARNING' ? 'log-warning' : ''}">
+                        <span class="log-timestamp">[${new Date(log.timestamp).toLocaleString()}]</span>
+                        <span>${log.message}</span>
+                    </div>
+                `).join('');
+                logContainer.scrollTop = logContainer.scrollHeight;
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+            }
+        }
+
+        async function initializeServerFilter() {
+            const response = await fetch('/api/servers/status');
+            const servers = await response.json();
+            const optionsContainer = document.querySelector('.server-filter-options');
+            
+            optionsContainer.innerHTML = `
+                <label class="server-filter-option">
+                    <input type="checkbox" value="all" checked>
+                    (Select All)
+                </label>
+                ${servers.map(server => `
+                    <label class="server-filter-option">
+                        <input type="checkbox" value="${server.country}" checked>
+                        ${server.country}
+                    </label>
+                `).join('')}
+            `;
+
+            setupFilterEventListeners();
+        }
+
+        function setupFilterEventListeners() {
+            const filterButton = document.querySelector('.server-filter-button');
+            const filterDropdown = document.querySelector('.server-filter-dropdown');
+            const searchInput = document.querySelector('.server-filter-search input');
+            const allCheckbox = document.querySelector('.server-filter-option input[value="all"]');
+            const serverCheckboxes = document.querySelectorAll('.server-filter-option input:not([value="all"])');
+            const applyButton = document.querySelector('.apply-filter');
+
+            filterButton.addEventListener('click', () => {
+                filterDropdown.classList.toggle('active');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.server-filter-container')) {
+                    filterDropdown.classList.remove('active');
+                }
+            });
+
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                document.querySelectorAll('.server-filter-option:not(:first-child)').forEach(option => {
+                    const text = option.textContent.toLowerCase();
+                    option.style.display = text.includes(searchTerm) ? 'flex' : 'none';
+                });
+            });
+
+            allCheckbox.addEventListener('change', (e) => {
+                serverCheckboxes.forEach(checkbox => {
+                    checkbox.checked = e.target.checked;
+                });
+                updateSelectedCount();
+            });
+
+            serverCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    const allChecked = Array.from(serverCheckboxes).every(cb => cb.checked);
+                    allCheckbox.checked = allChecked;
+                    updateSelectedCount();
+                });
+            });
+
+            applyButton.addEventListener('click', () => {
+                updateChart();
+                filterDropdown.classList.remove('active');
+                updateFilterButtonText();
+            });
+        }
+
+        function getSelectedServers() {
+            const checkboxes = document.querySelectorAll('.server-filter-option input:not([value="all"]):checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        function updateSelectedCount() {
+            const selected = document.querySelectorAll('.server-filter-option input:checked:not([value="all"])');
+            const countSpan = document.querySelector('.server-filter-footer span');
+            countSpan.textContent = `${selected.length} items selected`;
+        }
+
+        function updateFilterButtonText() {
+            const selected = getSelectedServers();
+            const buttonText = document.querySelector('.server-filter-button span');
+            buttonText.textContent = selected.length === 0 ? 'None selected' : 
+                                selected.length === document.querySelectorAll('.server-filter-option input:not([value="all"])').length ? 'All selected' :
+                                `${selected.length} selected`;
+        }
+
+        function getTimeUnit() {
+            const range = document.getElementById('time-range').value;
+            
+            if (range === 'custom') {
+                const startDate = new Date(document.getElementById('start-datetime').value);
+                const endDate = new Date(document.getElementById('end-datetime').value);
+                const diffHours = (endDate - startDate) / (1000 * 60 * 60);
+                
+                // Choose appropriate unit based on time difference
+                if (diffHours <= 48) {
+                    return 'hour';
+                } else if (diffHours <= 30 * 24) {
+                    return 'day';
+                } else {
+                    return 'month';
+                }
+            }
+            
+            return range === '24h' ? 'hour' : range === '7d' ? 'day' : 'month';
+        }
+
+        function setupEventListeners() {
+            document.getElementById('time-range').addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    document.getElementById('dateRangeModal').style.display = 'block';
+                } else {
+                    updateChart();
+                }
+            });
+
+            document.getElementById('applyDateRange').addEventListener('click', () => {
+                const start = document.getElementById('start-datetime').value;
+                const end = document.getElementById('end-datetime').value;
+                if (!start || !end) return;
+                updateChart();
+                document.getElementById('dateRangeModal').style.display = 'none';
+            });
+
+            document.getElementById('cancelDateRange').addEventListener('click', () => {
+                document.getElementById('dateRangeModal').style.display = 'none';
+                document.getElementById('time-range').value = '24h';
+            });
+
+            document.getElementById('exportData').addEventListener('click', async () => {
+                const response = await fetch('/api/ping-data');
+                const data = await response.json();
+                const csvContent = generateCSV(data);
+                downloadCSV(csvContent, 'server_data.csv');
+            });
+        }
+
+        function generateCSV(data) {
+            const headers = ['Timestamp', ...Object.keys(data)].join(',');
+            const timestamps = Object.values(data)[0]?.timestamps || [];
+            
+            const rows = timestamps.map((timestamp, i) => {
+                const values = Object.keys(data).map(country => 
+                    data[country].latency[i] === null ? 'No response' : data[country].latency[i]
+                );
+                return [timestamp, ...values].join(',');
+            });
+
+            return [headers, ...rows].join('\n');
+        }
+
+        function downloadCSV(content, filename) {
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChart();
+            initializeDashboard().catch(error => {
+                console.error('Dashboard initialization failed:', error);
+                document.getElementById('serverGrid').innerHTML = `
+                    <div style="text-align: center; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <h2 style="color: #d63031; margin-bottom: 10px;">Dashboard Error</h2>
+                        <p>There was a problem loading the dashboard. Please try refreshing the page.</p>
+                        <button onclick="location.reload()" style="margin-top: 15px; padding: 8px 16px; background: #0984e3; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            Refresh Page
+                        </button>
+                    </div>
+                `;
+            });
+        });
+        </script>
+    </body>
+    </html>
