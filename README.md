@@ -89,6 +89,10 @@ SQLite database with tables for:
 
 ### Installation
 
+## Alt 1: Using Curl
+curl -sSL https://raw.githubusercontent.com/Asadgh/ccc-sip-trunk-monitor/main/setup.sh | sudo bash
+
+# Alt 2
 1. Clone the repository
 2. Install dependencies: `pip install -r requirements.txt`
 3. Configure your `config.json` with appropriate server details
