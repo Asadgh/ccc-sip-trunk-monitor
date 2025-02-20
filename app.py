@@ -30,7 +30,6 @@ def query_db(query, args=(), one=False):
 def index():
     return render_template('index.html')
 
-
 @app.route('/api/ping-data', methods=['GET'])
 def get_ping_data():
     # Get query parameters
@@ -49,10 +48,17 @@ def get_ping_data():
     elif time_range == '30d':
         start = now - datetime.timedelta(days=30)
     elif time_range == 'custom' and start_time and end_time:
-        start = datetime.datetime.fromisoformat(start_time)
-        end = datetime.datetime.fromisoformat(end_time)
+        try:
+            start = datetime.datetime.fromisoformat(start_time)
+            end = datetime.datetime.fromisoformat(end_time)
+        except Exception as e:
+            return jsonify({'error': 'Invalid date format'}), 400
     else:
         return jsonify({'error': 'Invalid time range'}), 400
+
+    # Use the same datetime format as stored in the database
+    start_str = start.strftime("%Y-%m-%d %H:%M:%S")
+    end_str = end.strftime("%Y-%m-%d %H:%M:%S")
 
     # Build query
     query = """
@@ -63,14 +69,13 @@ def get_ping_data():
         FROM ping_results
         WHERE timestamp BETWEEN ? AND ?
     """
-    params = [start.isoformat(), end.isoformat()]
+    params = [start_str, end_str]
 
     if countries:
-        query += " AND country IN ({})".format(','.join(['?']*len(countries)))
+        query += " AND country IN ({})".format(','.join(['?'] * len(countries)))
         params.extend(countries)
 
     query += " GROUP BY time_bucket, country ORDER BY time_bucket"
-
 
     results = query_db(query, params)
     
