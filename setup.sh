@@ -85,7 +85,7 @@ if [ -f "$CONFIG_PATH" ]; then
     echo ">>> Creating symbolic link to config file..."
     ln -sf "$CONFIG_PATH" "$CONFIG_LINK"
     chown -h "$SERVICE_USER:$SERVICE_USER" "$CONFIG_LINK"
-    # echo "Symlink created: $CONFIG_LINK -> $CONFIG_PATH"
+    echo "Symlink created: $CONFIG_LINK -> $CONFIG_PATH"
 else
     echo ">>> WARNING: Config file not found at '$CONFIG_PATH'."
     echo ">>> You can place a valid config.json at $CONFIG_LINK later."
