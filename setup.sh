@@ -96,7 +96,6 @@ if [ -f "$CONFIG_PATH" ]; then
     echo "Copied: $CONFIG_PATH -> $CONFIG_TARGET"
 else
     echo ">>> WARNING: Config file not found at '$CONFIG_PATH'."
-fi
     echo ">>> You can place a valid config.json at $CONFIG_TARGET later."
 fi
 
