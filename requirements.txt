@@ -1,5 +1,5 @@
-Flask
-Werkzeug
+Flask==2.0.1 
+Werkzeug==2.0.3
 gunicorn==20.1.0
 typing-extensions==4.0.1
 dataclasses==0.8; python_version < "3.7"
