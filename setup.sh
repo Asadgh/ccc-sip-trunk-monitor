@@ -80,6 +80,12 @@ sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install gunicorn
 
 # 6) Prompt for the config file location and symlink if valid
 CONFIG_LINK="$INSTALL_DIR/config.json"
+
+if [ ! -t 0 ]; then
+    echo "Forcing interactive mode from /dev/tty..."
+    exec < /dev/tty
+fi
+
 # Prompt for config file path
 read -p "Enter the path to your config.json file: " CONFIG_PATH
 
