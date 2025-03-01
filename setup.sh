@@ -85,8 +85,11 @@ if [ ! -t 0 ]; then
     echo "Forcing interactive mode from /dev/tty..."
     exec < /dev/tty
     read -p "Enter the path to your config.json file: " CONFIG_PATH
+else
+    read -p "Enter the path to your config.json file: " CONFIG_PATH
 fi
 
+echo ">>> Config file specified at '$CONFIG_PATH'."
 # Prompt for config file path
 
 # Check if the file exists, then copy
