@@ -7,7 +7,7 @@
 #   2) Stopping the systemd services
 #   3) Pulling the latest changes from the repository
 #   4) Updating Python dependencies
-#   5) Recreating a desktop shortcut if needed
+#   5) Creating a desktop shortcut (if missing) pointing to localhost
 #   6) Restarting the services
 # -------------------------------------------------------------------------
 set -e  # Exit on error
@@ -59,7 +59,7 @@ if git diff --quiet HEAD origin/main; then
     print_message "Already at the latest version. No update needed."
 else
     # If you have local changes, this will overwrite them!
-    # For safer updating, consider `git stash --include-untracked && git pull --rebase`.
+    # For a safer approach, consider stashing or rebasing before resetting.
     git reset --hard origin/main
     chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
     print_message "Repository updated to latest commit on 'main'."
@@ -73,19 +73,17 @@ if [ -f "$INSTALL_DIR/requirements.txt" ]; then
 fi
 sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install gunicorn --upgrade
 
-# 5) Create desktop shortcut if it doesn't exist
+# 5) Create desktop shortcut if it doesn't exist (pointing to localhost)
 print_message "Checking desktop shortcut..."
 if [ ! -f "$DESKTOP_DIR/SIP-Monitor.desktop" ]; then
     print_message "Creating desktop shortcut..."
-    IP_ADDRESS=$(hostname -I | awk '{print $1}')
-    
     mkdir -p "$DESKTOP_DIR"
     cat > "$DESKTOP_DIR/SIP-Monitor.desktop" << EOF
 [Desktop Entry]
 Type=Application
 Name=SIP Monitor
-Comment=Launch SIP Monitor Web Interface
-Exec=chromium-browser http://$IP_ADDRESS:5000
+Comment=Launch SIP Monitor Web Interface (Localhost)
+Exec=chromium-browser http://localhost:5000
 Icon=web-browser
 Terminal=false
 Categories=Network;
@@ -102,6 +100,7 @@ systemctl restart ccc-sip-monitor-web.service ccc-sip-monitor-pinger.service
 
 # Final message
 print_message "Update complete!"
-echo "Web interface is available at: http://$(hostname -I | awk '{print $1}'):5000"
+echo "Web interface is available at: http://localhost:5000 (on the Pi itself)"
+echo "Or use the Pi's IP (e.g., http://<Pi_IP>:5000) from another device."
 echo "Check status with: systemctl status ccc-sip-monitor-web.service ccc-sip-monitor-pinger.service"
 echo "Desktop shortcut: $DESKTOP_DIR/SIP-Monitor.desktop"

@@ -8,9 +8,10 @@
 #  2) Clones or updates the repository
 #  3) Creates a Python virtual environment and installs Python dependencies
 #  4) Prompts for config.json path and symlinks it
-#  5) Creates systemd service units (restart on failure) & logs to /var/log/ccc-sip-monitor/
-#  6) Creates a desktop shortcut for launching the web UI
-#  7) Updates PCManFM to "execute" text files without prompting
+#  5) Creates systemd service units (bind to 0.0.0.0, restart on failure)
+#     & logs to /var/log/ccc-sip-monitor/
+#  6) Creates a desktop shortcut pointing to localhost
+#  7) Updates PCManFM to "execute" text files without prompt
 #  8) Optionally enables and starts those services
 # --------------------------------------------------------------------------
 set -e  # Exit on any error
@@ -140,17 +141,16 @@ StandardError=append:$LOG_DIR/pinger.log
 WantedBy=multi-user.target
 EOF
 
-# 10) (Optional) Create a desktop shortcut to open the web interface
+# 10) (Optional) Create a desktop shortcut to open the web interface on localhost
 echo ">>> Creating desktop shortcut for the SIP Monitor..."
 mkdir -p "$DESKTOP_DIR"
-IP_ADDRESS=$(hostname -I | awk '{print $1}')
 
 cat <<EOF > "$DESKTOP_DIR/SIP-Monitor.desktop"
 [Desktop Entry]
 Type=Application
 Name=SIP Monitor
-Comment=Launch SIP Monitor Web Interface
-Exec=chromium-browser http://$IP_ADDRESS:5000
+Comment=Launch SIP Monitor Web Interface (Localhost)
+Exec=chromium-browser http://localhost:5000
 Icon=web-browser
 Terminal=false
 Categories=Network;
