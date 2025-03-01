@@ -86,14 +86,15 @@ echo "You entered: $CONFIG_PATH"
 
 # Check if the file exists, then copy
 if [ -f "$CONFIG_PATH" ]; then
-    echo ">>> Copying config file to $CONFIG_TARGET ..."
-    cp -f "$CONFIG_PATH" "$CONFIG_TARGET"
-    chown "$SUDO_USER:$SUDO_USER" "$CONFIG_TARGET"
-    echo "Copied: $CONFIG_PATH -> $CONFIG_TARGET"
+    echo ">>> Copying config file to $CONFIG_LINK ..."
+    cp -f "$CONFIG_PATH" "$CONFIG_LINK"
+    chown "$SUDO_USER:$SUDO_USER" "$CONFIG_LINK"
+    echo "Copied: $CONFIG_PATH -> $CONFIG_LINK"
 else
     echo ">>> WARNING: Config file not found at '$CONFIG_PATH'."
-    echo ">>> You can place a valid config.json at $CONFIG_TARGET later."
+    echo ">>> You can place a valid config.json at $CONFIG_LINK later."
 fi
+
 
 # 7) Create a directory for logs and adjust permissions
 echo ">>> Setting up log directory at $LOG_DIR ..."
