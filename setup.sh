@@ -21,11 +21,8 @@ REPO_URL="https://github.com/Asadgh/ccc-sip-trunk-monitor.git"
 INSTALL_DIR="/opt/ccc-sip-monitor"
 VENV_DIR="$INSTALL_DIR/venv"
 LOG_DIR="/var/log/ccc-sip-monitor"
-DESKTOP_DIR=""
-PCMANFM_CONFIG=""
-# --------------------------------------------------------------------
 
-# --- 1) Detect the user who invoked sudo (or fallback to current user) ---
+# Detect which user invoked sudo (or fallback to current user)
 if [ -n "$SUDO_USER" ]; then
     SERVICE_USER="$SUDO_USER"
 else
@@ -38,17 +35,17 @@ PCMANFM_CONFIG="/home/$SERVICE_USER/.config/pcmanfm/LXDE-pi/pcmanfm.conf"
 
 echo ">>> Running ccc-sip-monitor setup script as user: $SERVICE_USER"
 
-# 2) Update system and install dependencies
+# 1) Update system and install dependencies
 echo ">>> Installing system dependencies..."
 apt-get update -y
 apt-get install -y git curl python3 python3-pip python3-venv sqlite3 chromium-browser
 
-# 3) Create or update installation directory
+# 2) Create or update installation directory
 echo ">>> Preparing installation directory at $INSTALL_DIR ..."
 mkdir -p "$INSTALL_DIR"
 chown "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
-# 4) Clone or pull the latest repository
+# 3) Clone or pull the latest repository
 if [ -d "$INSTALL_DIR/.git" ]; then
     echo ">>> Repository exists, pulling latest changes..."
     cd "$INSTALL_DIR"
@@ -59,14 +56,14 @@ else
     chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 fi
 
-# 5) Create and activate a Python virtual environment
+# 4) Create and activate a Python virtual environment
 echo ">>> Setting up Python virtual environment..."
 if [ ! -d "$VENV_DIR" ]; then
     sudo -u "$SERVICE_USER" python3 -m venv "$VENV_DIR"
 fi
 sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install --upgrade pip
 
-# 6) Install Python dependencies
+# 5) Install Python dependencies
 echo ">>> Installing Python dependencies..."
 if [ ! -f "$INSTALL_DIR/requirements.txt" ]; then
     echo ">>> requirements.txt not found, creating a basic one..."
@@ -81,7 +78,7 @@ fi
 sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
 sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install gunicorn
 
-# 7) Prompt for the config file location and symlink if valid
+# 6) Prompt for the config file location and symlink if valid
 CONFIG_LINK="$INSTALL_DIR/config.json"
 read -p "Enter the path to your config.json file: " CONFIG_PATH
 if [ -f "$CONFIG_PATH" ]; then
@@ -94,13 +91,13 @@ else
     echo ">>> You can place a valid config.json at $CONFIG_LINK later."
 fi
 
-# 8) Create a directory for logs and adjust permissions
+# 7) Create a directory for logs and adjust permissions
 echo ">>> Setting up log directory at $LOG_DIR ..."
 mkdir -p "$LOG_DIR"
 chown "$SERVICE_USER:$SERVICE_USER" "$LOG_DIR"
 chmod 755 "$LOG_DIR"
 
-# 9) Create systemd service files with restart-on-failure and logging
+# 8) Create systemd service files with restart-on-failure and logging
 echo ">>> Creating systemd service files..."
 
 # ccc-sip-monitor-web.service
@@ -141,7 +138,7 @@ StandardError=append:$LOG_DIR/pinger.log
 WantedBy=multi-user.target
 EOF
 
-# 10) (Optional) Create a desktop shortcut to open the web interface on localhost
+# 9) Create a desktop shortcut to open the web interface on localhost
 echo ">>> Creating desktop shortcut for the SIP Monitor..."
 mkdir -p "$DESKTOP_DIR"
 
@@ -159,14 +156,12 @@ EOF
 chmod +x "$DESKTOP_DIR/SIP-Monitor.desktop"
 chown "$SERVICE_USER:$SERVICE_USER" "$DESKTOP_DIR/SIP-Monitor.desktop"
 
-# 11) Configure PCManFM to execute text files without prompting
+# 10) Configure PCManFM to execute text files without prompting
 #     0=Ask, 1=Execute, 2=Open in text editor
 echo ">>> Configuring PCManFM to execute scripts without prompt..."
 mkdir -p "$(dirname "$PCMANFM_CONFIG")"
 if [ -f "$PCMANFM_CONFIG" ]; then
-    # If exec_cmd=1 is already present, sed will just update it; otherwise, we add it
     sed -i 's/^\(exec_cmd\s*=\s*\).*/\11/' "$PCMANFM_CONFIG" || true
-    # If there's no line at all, append it
     if ! grep -q "^exec_cmd=" "$PCMANFM_CONFIG"; then
         echo "exec_cmd=1" >> "$PCMANFM_CONFIG"
     fi
@@ -179,7 +174,7 @@ fi
 chown "$SERVICE_USER:$SERVICE_USER" "$PCMANFM_CONFIG"
 echo ">>> PCManFM set to automatically execute scripts."
 
-# 12) Enable and start services only if we have a config.json
+# 11) Enable and start services only if we have a config.json
 if [ -f "$CONFIG_LINK" ]; then
     echo ">>> Enabling and starting services..."
     systemctl daemon-reload
