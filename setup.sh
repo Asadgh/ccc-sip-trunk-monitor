@@ -7,7 +7,11 @@ set -e  # Exit on error
 REPO_URL="https://github.com/Asadgh/ccc-sip-trunk-monitor.git"
 INSTALL_DIR="/opt/ccc-sip-monitor"
 VENV_DIR="$INSTALL_DIR/venv"
-SERVICE_USER="pi"  # Change if using a different user
+if [ -n "$SUDO_USER" ]; then
+    SERVICE_USER="$SUDO_USER"
+else
+    SERVICE_USER=$(whoami)
+fi
 DESKTOP_DIR="/home/$SERVICE_USER/Desktop"
 
 # Function to print colored messages
