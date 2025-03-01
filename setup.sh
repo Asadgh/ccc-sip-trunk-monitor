@@ -79,16 +79,18 @@ sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install -r "$INSTALL_DIR/requirement
 sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install gunicorn
 
 # 6) Prompt for the config file location and symlink if valid
+CONFIG_LINK="$INSTALL_DIR/config.json"
+
 if [ ! -t 0 ]; then
     echo "Forcing interactive mode from /dev/tty..."
     exec < /dev/tty
+    echo "Set to interactive mode from /dev/tty..."
 fi
 
-INSTALL_DIR="/opt/ccc-sip-monitor"
-CONFIG_TARGET="$INSTALL_DIR/config.json"
-
+# Prompt for config file path
 read -p "Enter the path to your config.json file: " CONFIG_PATH
 
+# Check if the file exists, then copy
 if [ -f "$CONFIG_PATH" ]; then
     echo ">>> Copying config file to $CONFIG_TARGET ..."
     cp -f "$CONFIG_PATH" "$CONFIG_TARGET"
