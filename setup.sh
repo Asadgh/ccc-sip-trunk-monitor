@@ -1,134 +1,151 @@
 #!/bin/bash
-# Network Monitor Setup Script for Raspberry Pi
-# This script automates the installation and setup of the ccc-sip-trunk-monitor
-set -e  # Exit on error
+# --------------------------------------------------------------------------
+# ccc-sip-monitor Setup Script
+# --------------------------------------------------------------------------
+# This script installs and configures the ccc-sip-trunk-monitor application
+# on a Raspberry Pi (or Debian-based system) with LXDE-pi desktop. It:
+#  1) Installs required packages
+#  2) Clones or updates the repository
+#  3) Creates a Python virtual environment and installs Python dependencies
+#  4) Prompts for config.json path and symlinks it
+#  5) Creates systemd service units (restart on failure) & logs to /var/log/ccc-sip-monitor/
+#  6) Creates a desktop shortcut for launching the web UI
+#  7) Updates PCManFM to "execute" text files without prompting
+#  8) Optionally enables and starts those services
+# --------------------------------------------------------------------------
+set -e  # Exit on any error
 
-# Configuration
+# -------------------------- Configuration ---------------------------
 REPO_URL="https://github.com/Asadgh/ccc-sip-trunk-monitor.git"
 INSTALL_DIR="/opt/ccc-sip-monitor"
 VENV_DIR="$INSTALL_DIR/venv"
+LOG_DIR="/var/log/ccc-sip-monitor"
+DESKTOP_DIR=""
+PCMANFM_CONFIG=""
+# --------------------------------------------------------------------
+
+# --- 1) Detect the user who invoked sudo (or fallback to current user) ---
 if [ -n "$SUDO_USER" ]; then
     SERVICE_USER="$SUDO_USER"
 else
-    SERVICE_USER=$(whoami)
+    SERVICE_USER="$(whoami)"
 fi
+
+# On Raspberry Pi OS with LXDE-pi, the desktop folder is typically:
 DESKTOP_DIR="/home/$SERVICE_USER/Desktop"
+PCMANFM_CONFIG="/home/$SERVICE_USER/.config/pcmanfm/LXDE-pi/pcmanfm.conf"
 
-# Function to print colored messages
-print_message() {
-    echo -e "\e[1;34m>>> $1\e[0m"
-}
+echo ">>> Running ccc-sip-monitor setup script as user: $SERVICE_USER"
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-    echo "Please run as root (use sudo)"
-    exit 1
-fi
+# 2) Update system and install dependencies
+echo ">>> Installing system dependencies..."
+apt-get update -y
+apt-get install -y git curl python3 python3-pip python3-venv sqlite3 chromium-browser
 
-# Step 1: Update system and install dependencies
-print_message "Updating system and installing dependencies..."
-apt-get update
-apt-get install -y git curl python3 python3-pip python3-venv sqlite3
+# 3) Create or update installation directory
+echo ">>> Preparing installation directory at $INSTALL_DIR ..."
+mkdir -p "$INSTALL_DIR"
+chown "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
-# Step 2: Create installation directory
-print_message "Creating installation directory..."
-mkdir -p $INSTALL_DIR
-chown $SERVICE_USER:$SERVICE_USER $INSTALL_DIR
-
-# Step 3: Clone repository
-print_message "Cloning repository..."
+# 4) Clone or pull the latest repository
 if [ -d "$INSTALL_DIR/.git" ]; then
-    print_message "Repository already exists, updating..."
-    cd $INSTALL_DIR
+    echo ">>> Repository exists, pulling latest changes..."
+    cd "$INSTALL_DIR"
     git pull
 else
-    git clone $REPO_URL $INSTALL_DIR
-    chown -R $SERVICE_USER:$SERVICE_USER $INSTALL_DIR
+    echo ">>> Cloning repository from $REPO_URL ..."
+    git clone "$REPO_URL" "$INSTALL_DIR"
+    chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 fi
 
-# Step 4: Create and activate virtual environment
-print_message "Setting up virtual environment..."
+# 5) Create and activate a Python virtual environment
+echo ">>> Setting up Python virtual environment..."
 if [ ! -d "$VENV_DIR" ]; then
-    sudo -u $SERVICE_USER python3 -m venv $VENV_DIR
+    sudo -u "$SERVICE_USER" python3 -m venv "$VENV_DIR"
 fi
+sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install --upgrade pip
 
-# Step 5: Install requirements
-print_message "Installing Python dependencies..."
-sudo -u $SERVICE_USER $VENV_DIR/bin/pip install --upgrade pip
-
-# Create requirements.txt if it doesn't exist
+# 6) Install Python dependencies
+echo ">>> Installing Python dependencies..."
 if [ ! -f "$INSTALL_DIR/requirements.txt" ]; then
-    print_message "Creating requirements.txt..."
-    cat > $INSTALL_DIR/requirements.txt << EOF
+    echo ">>> requirements.txt not found, creating a basic one..."
+    cat > "$INSTALL_DIR/requirements.txt" << EOF
 Flask==2.0.1
 gunicorn==20.1.0
 typing-extensions==4.0.1
 dataclasses==0.8; python_version < "3.7"
 EOF
-    chown $SERVICE_USER:$SERVICE_USER $INSTALL_DIR/requirements.txt
+    chown "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR/requirements.txt"
 fi
+sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
+sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install gunicorn
 
-sudo -u $SERVICE_USER $VENV_DIR/bin/pip install -r $INSTALL_DIR/requirements.txt
-sudo -u $SERVICE_USER $VENV_DIR/bin/pip install gunicorn  # For production Flask serving
-
-# Step 6: Prompt for config file location and create symbolic link
-print_message "Configuration setup..."
+# 7) Prompt for the config file location and symlink if valid
+CONFIG_LINK="$INSTALL_DIR/config.json"
 read -p "Enter the path to your config.json file: " CONFIG_PATH
-
 if [ -f "$CONFIG_PATH" ]; then
-    print_message "Creating symbolic link to config file..."
-    ln -sf "$CONFIG_PATH" "$INSTALL_DIR/config.json"
-    chown -h $SERVICE_USER:$SERVICE_USER "$INSTALL_DIR/config.json"
+    echo ">>> Creating symbolic link to config file..."
+    ln -sf "$CONFIG_PATH" "$CONFIG_LINK"
+    chown -h "$SERVICE_USER:$SERVICE_USER" "$CONFIG_LINK"
+    echo "Symlink created: $CONFIG_LINK -> $CONFIG_PATH"
 else
-    print_message "Config file not found at $CONFIG_PATH. Please create one before starting the services."
-    
-    # Create a template config.json if it doesn't exist
-    if [ ! -f "$INSTALL_DIR/config.json.template" ]; then
-        cat > $INSTALL_DIR/config.json.template << EOF
-{
-  "database_path": "database.db",
-  "servers": [
-    {
-      "partner": "Example",
-      "country": "US",
-      "ip": "example.com",
-      "dn_ext": "com"
-    }
-  ],
-  "ping_count": 4,
-  "ping_timeout": 5,
-  "windows_params": {
-    "os": "windows",
-    "count_param": "-n",
-    "timeout_param": "-w"
-  },
-  "unix_params": {
-    "os": "unix",
-    "count_param": "-c",
-    "timeout_param": "-W"
-  },
-  "latency_thresholds": {
-    "excellent": 50,
-    "good": 100,
-    "fair": 150,
-    "poor": 300,
-    "critical": 500
-  }
-}
-EOF
-        chown $SERVICE_USER:$SERVICE_USER $INSTALL_DIR/config.json.template
-        print_message "A template config file has been created at $INSTALL_DIR/config.json.template"
-        print_message "Please copy and modify this template, then restart the services."
-    fi
+    echo ">>> WARNING: Config file not found at '$CONFIG_PATH'."
+    echo ">>> You can place a valid config.json at $CONFIG_LINK later."
 fi
 
-print_message "Checking desktop shortcut..."
-if [ ! -f "$DESKTOP_DIR/SIP-Monitor.desktop" ]; then
-    print_message "Creating desktop shortcut..."
-    IP_ADDRESS=$(hostname -I | awk '{print $1}')
-    
-    mkdir -p $DESKTOP_DIR
-    cat > $DESKTOP_DIR/SIP-Monitor.desktop << EOF
+# 8) Create a directory for logs and adjust permissions
+echo ">>> Setting up log directory at $LOG_DIR ..."
+mkdir -p "$LOG_DIR"
+chown "$SERVICE_USER:$SERVICE_USER" "$LOG_DIR"
+chmod 755 "$LOG_DIR"
+
+# 9) Create systemd service files with restart-on-failure and logging
+echo ">>> Creating systemd service files..."
+
+# ccc-sip-monitor-web.service
+cat > /etc/systemd/system/ccc-sip-monitor-web.service << EOF
+[Unit]
+Description=CCC SIP Monitor - Web Service
+After=network.target
+
+[Service]
+User=$SERVICE_USER
+WorkingDirectory=$INSTALL_DIR
+ExecStart=$VENV_DIR/bin/gunicorn --workers 3 --bind 0.0.0.0:5000 app:app
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:$LOG_DIR/web.log
+StandardError=append:$LOG_DIR/web.log
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# ccc-sip-monitor-pinger.service
+cat > /etc/systemd/system/ccc-sip-monitor-pinger.service << EOF
+[Unit]
+Description=CCC SIP Monitor - Pinger Service
+After=network.target
+
+[Service]
+User=$SERVICE_USER
+WorkingDirectory=$INSTALL_DIR
+ExecStart=$VENV_DIR/bin/python pinger.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:$LOG_DIR/pinger.log
+StandardError=append:$LOG_DIR/pinger.log
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 10) (Optional) Create a desktop shortcut to open the web interface
+echo ">>> Creating desktop shortcut for the SIP Monitor..."
+mkdir -p "$DESKTOP_DIR"
+IP_ADDRESS=$(hostname -I | awk '{print $1}')
+
+cat <<EOF > "$DESKTOP_DIR/SIP-Monitor.desktop"
 [Desktop Entry]
 Type=Application
 Name=SIP Monitor
@@ -138,64 +155,51 @@ Icon=web-browser
 Terminal=false
 Categories=Network;
 EOF
-    
-    chmod +x $DESKTOP_DIR/SIP-Monitor.desktop
-    chown $SERVICE_USER:$SERVICE_USER $DESKTOP_DIR/SIP-Monitor.desktop
+
+chmod +x "$DESKTOP_DIR/SIP-Monitor.desktop"
+chown "$SERVICE_USER:$SERVICE_USER" "$DESKTOP_DIR/SIP-Monitor.desktop"
+
+# 11) Configure PCManFM to execute text files without prompting
+#     0=Ask, 1=Execute, 2=Open in text editor
+echo ">>> Configuring PCManFM to execute scripts without prompt..."
+mkdir -p "$(dirname "$PCMANFM_CONFIG")"
+if [ -f "$PCMANFM_CONFIG" ]; then
+    # If exec_cmd=1 is already present, sed will just update it; otherwise, we add it
+    sed -i 's/^\(exec_cmd\s*=\s*\).*/\11/' "$PCMANFM_CONFIG" || true
+    # If there's no line at all, append it
+    if ! grep -q "^exec_cmd=" "$PCMANFM_CONFIG"; then
+        echo "exec_cmd=1" >> "$PCMANFM_CONFIG"
+    fi
+else
+    cat <<EOF > "$PCMANFM_CONFIG"
+[ui]
+exec_cmd=1
+EOF
 fi
+chown "$SERVICE_USER:$SERVICE_USER" "$PCMANFM_CONFIG"
+echo ">>> PCManFM set to automatically execute scripts."
 
-# Step 7: Create systemd service files
-print_message "Creating systemd service files..."
-# Flask Server Service
-cat > /etc/systemd/system/ccc-sip-monitor-web.service << EOF
-[Unit]
-Description=Network Monitor Web Service
-After=network.target
-
-[Service]
-User=$SERVICE_USER
-WorkingDirectory=$INSTALL_DIR
-ExecStart=$VENV_DIR/bin/gunicorn --workers 3 --bind 0.0.0.0:5000 app:app
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Pinger Service
-cat > /etc/systemd/system/ccc-sip-monitor-pinger.service << EOF
-[Unit]
-Description=Network Monitor Pinger Service
-After=network.target
-
-[Service]
-User=$SERVICE_USER
-WorkingDirectory=$INSTALL_DIR
-ExecStart=$VENV_DIR/bin/python pinger.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Step 8: Enable and start services if config exists
-if [ -f "$INSTALL_DIR/config.json" ]; then
-    print_message "Enabling and starting services..."
+# 12) Enable and start services only if we have a config.json
+if [ -f "$CONFIG_LINK" ]; then
+    echo ">>> Enabling and starting services..."
     systemctl daemon-reload
     systemctl enable ccc-sip-monitor-web.service ccc-sip-monitor-pinger.service
     systemctl start ccc-sip-monitor-web.service ccc-sip-monitor-pinger.service
+    echo ">>> Services are now active. Check logs in $LOG_DIR/ or use 'journalctl -u ccc-sip-monitor-...'."
 else
-    print_message "Services have been created but not started due to missing config file."
-    print_message "After setting up your config file, run: systemctl enable --now ccc-sip-monitor-web.service ccc-sip-monitor-pinger.service"
+    echo ">>> Config file not found. Services have been created but NOT started."
+    echo ">>> Once you have a valid config.json, run:
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now ccc-sip-monitor-web.service ccc-sip-monitor-pinger.service
+"
 fi
 
-# Final message
-print_message "Installation complete!"
-print_message "Web interface will be available at: http://$(hostname -I | awk '{print $1}'):5000"
-print_message "Check status with: systemctl status ccc-sip-monitor-web.service ccc-sip-monitor-pinger.service"
-
-if [ ! -f "$INSTALL_DIR/config.json" ]; then
-    print_message "IMPORTANT: You need to set up your config file before the system will work!"
-    print_message "Use the template at $INSTALL_DIR/config.json.template as a starting point."
-fi
+echo ">>> Setup complete!"
+echo "You can check service status with:
+  systemctl status ccc-sip-monitor-web.service
+  systemctl status ccc-sip-monitor-pinger.service
+Logs are stored in: $LOG_DIR/
+Desktop shortcut: $DESKTOP_DIR/SIP-Monitor.desktop
+"
+echo ">>> Note: If you still see a prompt when clicking the desktop shortcut,
+log out and log back in or restart your system for PCManFM changes to fully apply."
