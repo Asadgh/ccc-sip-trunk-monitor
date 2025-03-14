@@ -27,24 +27,23 @@ class Logger:
         Initialize the SQLite logger with a specific database path.
         """
         self.db_path = config['database_path']
+        self.conn = sqlite3.connect(config['database_path'], timeout=conn_timeout)
         self._create_logs_table()
 
     def _create_logs_table(self):
-        """
-        Create logs table if it doesn't exist.
-        """
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                level TEXT,
-                message TEXT,
-                module TEXT,
-                traceback TEXT
-            )
-        ''')
-        conn.commit()
+        with sqlite3.connect(self.db_path, timeout=conn_timeout) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    level TEXT,
+                    message TEXT,
+                    module TEXT,
+                    traceback TEXT
+                )
+            ''')
+            conn.commit()
 
     def log(self, 
             message: str, 
@@ -70,13 +69,13 @@ class Logger:
             traceback_text = ''.join(traceback.format_exception(*tb))
 
         # Insert log entry
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO logs 
-            (level, message, module, traceback) 
-            VALUES (?, ?, ?, ?)
-        ''', (level.upper(), message, module, traceback_text))
-        conn.commit()
+        with sqlite3.connect(self.db_path, timeout=conn_timeout) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO logs (level, message, module, traceback) 
+                VALUES (?, ?, ?, ?)
+            ''', (level.upper(), message, module, traceback_text))
+            conn.commit()
 
     def get_logs(self, 
                  level: Optional[str] = None, 
@@ -93,7 +92,7 @@ class Logger:
         Returns:
             list: List of log entries matching the filter.
         """
-        cursor = conn.cursor()
+        cursor = self.conn.cursor()
         query = "SELECT * FROM logs WHERE 1=1"
         params = []
 

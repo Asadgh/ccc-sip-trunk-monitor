@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CCC - {{ country }}</title>
+    <link
+      rel="icon shortcut"
+      type="image/png"
+      href="{{ url_for('static', filename='fav.png') }}"
+    />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/apexcharts/3.45.1/apexcharts.min.js"></script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      /* Basic reset and fonts similar to index.html */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+      body {
+        background: #f5f6fa;
+        color: black;
+        margin: 0 auto;
+        padding: 20px;
+        max-width: 1400px;
+        font-family: system-ui, "Helvetica Neue", Arial, sans-serif;
+        font-weight: bold;
+        font-size: 14px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+      .dashboard {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .title {
+        color: #2d3436;
+        font-size: 24px;
+      }
+      .chart-container {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        position: relative;
+        min-height: 400px;
+      }
+      .chart-wrapper {
+        position: absolute;
+        top: 80px;
+        left: 20px;
+        right: 20px;
+        bottom: 20px;
+      }
+      .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      .chart-controls {
+        display: flex;
+        gap: 15px;
+        align-items: flex-start;
+      }
+      .time-filter select,
+      .time-filter input,
+      .table-time-filter select,
+      .table-time-filter input {
+        padding: 8px;
+        border: 1px solid #dfe6e9;
+        border-radius: 5px;
+        font-size: 14px;
+      }
+      .server-filter-container {
+        position: relative;
+        min-width: 200px;
+      }
+      .server-filter-button {
+        padding: 8px 12px;
+        border: 1px solid #dfe6e9;
+        border-radius: 5px;
+        background: white;
+        font-size: 14px;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+      }
+      .server-filter-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #dfe6e9;
+        border-radius: 5px;
+        margin-top: 4px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        display: none;
+      }
+      .server-filter-dropdown.active {
+        display: block;
+      }
+      .server-filter-search {
+        padding: 8px;
+        border-bottom: 1px solid #dfe6e9;
+      }
+      .server-filter-search input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #dfe6e9;
+        border-radius: 5px;
+        font-size: 14px;
+      }
+      .server-filter-options {
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      .server-filter-option {
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+      }
+      .server-filter-option:hover {
+        background: #f5f6fa;
+      }
+      .server-filter-option input[type="checkbox"] {
+        margin: 0;
+      }
+      .server-filter-footer {
+        padding: 8px;
+        border-top: 1px solid #dfe6e9;
+        display: flex;
+        justify-content: space-between;
+      }
+      .apply-filter {
+        padding: 6px 12px;
+        background: #0984e3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .apply-filter:hover {
+        background: #0873c7;
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+      }
+      .modal-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        min-width: 400px;
+      }
+      .modal-header {
+        margin-bottom: 20px;
+      }
+      .modal-body {
+        margin-bottom: 20px;
+      }
+      .datetime-inputs {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .datetime-input {
+        padding: 8px;
+        border: 1px solid #dfe6e9;
+        border-radius: 5px;
+      }
+      .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      .modal-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .modal-btn-primary {
+        background: #0984e3;
+        color: white;
+      }
+      .modal-btn-secondary {
+        background: #dfe6e9;
+      }
+      .control-button {
+        padding: 8px 16px;
+        background: #0984e3;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .control-button:hover {
+        background: #0873c7;
+      }
+      .export-section {
+        margin-bottom: 15px;
+      }
+      .export-section h4 {
+        margin-bottom: 10px;
+        color: #2d3436;
+      }
+      .server-selection {
+        max-height: 150px;
+        overflow-y: auto;
+        border: 1px solid #dfe6e9;
+        border-radius: 5px;
+        padding: 10px;
+      }
+      .select-all-option {
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #dfe6e9;
+      }
+      .server-checkboxes {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .server-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .bubble {
+        display: inline-block;
+        margin: 24px 16px;
+        padding: 12px 24px;
+        border-radius: 24px;
+        min-height: 48px;
+        transition: transform 0.35s, filter 0.35s ease;
+      }
+      .bubble:hover {
+        transform: scale(1.02);
+        filter: brightness(1.15);
+      }
+      .gray.bubble {
+        background: #222;
+      }
+      .red.bubble {
+        background: #f73b30;
+      }
+      .yellow.bubble {
+        background: rgb(217, 217, 1)
+      }
+      .half.bubble {
+        width: 50%;
+      }
+
+      table {
+        width: 100%;
+        font-weight: bold;
+      }
+
+      td {
+        padding: 8px;
+      }
+      td.right {
+        text-align: right;
+      }
+      td.third {
+        width: 40%;
+      }
+      td.white {
+        color: white;
+      }
+      td.gray {
+        color: #888;
+      }
+      td.contrast {
+        color: white;
+        mix-blend-mode: soft-light;
+      }
+
+      .mono {
+        font-family: monospace;
+        font-size: 15px;
+        color: #f5f6fa;
+      }
+      .noselect {
+        user-select: none;
+      }
+
+      .list-item {
+        display: inline-block;
+        margin: 0 64px 16px 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        cursor: default;
+      }
+      .list-item > * {
+        flex: 1;
+      }
+
+      .indicator {
+        background: #515151; /* default until we get a status */
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        margin: 0 12px 0 0;
+      }
+      .errored {
+        color: #f73b30;
+      }
+      .warning {
+        color: #eece53;
+      }
+
+      .standalone {
+        margin: 24px 0 16px 24px;
+      }
+      .logo-wrapper {
+        width: 10rem;
+      }
+      .cont-box {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+      }
+      #ping-data-raw {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
+        overflow: hidden;
+        margin: 28px 0;
+        --primary-color: #6366f1;
+        --danger-color: #f43f5e;
+        --success-color: #10b981;
+        --text-color: #334155;
+        --highlight-color: #eef2ff;
+        --border-color: #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        max-height: 500px; /* Set a reasonable fixed height */
+      }
+
+      #ping-data-raw thead,
+      #ping-data-raw tbody {
+        display: block;
+      }
+
+      #ping-data-raw tbody {
+        overflow-y: auto;
+        overflow-x: hidden;
+        flex-grow: 1;
+      }
+
+      #ping-data-raw thead {
+        background: linear-gradient(135deg, var(--primary-color), #818cf8);
+        color: white;
+      }
+
+      #ping-data-raw th {
+        padding: 16px 20px;
+        text-align: left;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        font-size: 14px;
+        text-transform: uppercase;
+        position: relative;
+      }
+
+      #ping-data-raw th:after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      #ping-data-raw td {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-color);
+        font-size: 15px;
+        transition: all 0.2s ease;
+      }
+
+      #ping-data-raw tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      #ping-data-raw tbody tr:nth-child(even) {
+        background-color: #f8fafc;
+      }
+
+      #ping-data-raw tbody tr:hover {
+        background-color: var(--highlight-color);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 10px rgba(0, 0, 0, 0.05);
+      }
+
+      #ping-data-raw tbody tr td:last-child {
+        font-style: italic;
+        color: #64748b;
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+      }
+
+      /* Style for Packet Loss column */
+      #ping-data-raw tbody tr td:nth-child(5) {
+        font-weight: 600;
+        position: relative;
+      }
+
+      #ping-data-raw tbody tr td:nth-child(5)::after {
+        content: "";
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-left: 8px;
+        background-color: #10b981;
+      }
+
+      #ping-data-raw tbody tr td:nth-child(5)[data-value^="0"]::after {
+        background-color: #10b981; /* Green for 0% */
+      }
+
+      #ping-data-raw tbody tr td:nth-child(5)[data-value^="1"]::after,
+      #ping-data-raw tbody tr td:nth-child(5)[data-value^="2"]::after {
+        background-color: #fbbf24; /* Yellow for 1-2% */
+      }
+
+      #ping-data-raw tbody tr td:nth-child(5)[data-value^="3"]::after,
+      #ping-data-raw tbody tr td:nth-child(5)[data-value^="4"]::after,
+      #ping-data-raw tbody tr td:nth-child(5)[data-value^="5"]::after {
+        background-color: #fb923c; /* Orange for 3-5% */
+      }
+
+      #ping-data-raw tbody tr td:nth-child(5)[data-value^="6"]::after,
+      #ping-data-raw tbody tr td:nth-child(5)[data-value^="7"]::after,
+      #ping-data-raw tbody tr td:nth-child(5)[data-value^="8"]::after,
+      #ping-data-raw tbody tr td:nth-child(5)[data-value^="9"]::after,
+      #ping-data-raw tbody tr td:nth-child(5)[data-value="100"]::after {
+        background-color: var(--danger-color); /* Red for 6-100% */
+      }
+
+      /* Style for Status column */
+      #ping-data-raw tbody tr td:nth-child(6) {
+        font-weight: 600;
+        text-align: center;
+      }
+
+      #ping-data-raw tbody tr td:nth-child(6)::before {
+        content: "";
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+
+      #ping-data-raw tbody tr td:nth-child(6):contains("Active")::before {
+        background-color: var(--success-color);
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+      }
+
+      #ping-data-raw tbody tr td:nth-child(6):contains("Inactive")::before {
+        background-color: var(--danger-color);
+        box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.2);
+      }
+
+      /* Fixing the contains selector since it might not work in all browsers */
+      #ping-data-raw tbody tr td.active-status::before {
+        background-color: var(--success-color);
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+      }
+
+      #ping-data-raw tbody tr td.inactive-status::before {
+        background-color: var(--danger-color);
+        box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.2);
+      }
+
+      /* Stylish badges for min/max/avg latency */
+      #ping-data-raw tbody tr td:nth-child(2),
+      #ping-data-raw tbody tr td:nth-child(3),
+      #ping-data-raw tbody tr td:nth-child(4) {
+        font-family: "SF Mono", "Monaco", "Consolas", monospace;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      /* Timestamp styling */
+      #ping-data-raw tbody tr td:first-child {
+        font-size: 14px;
+        color: #475569;
+      }
+
+      /* Dark mode support */
+      @media (prefers-color-scheme: dark) {
+        #ping-data-raw {
+          --text-color: #e2e8f0;
+          --highlight-color: rgba(99, 102, 241, 0.1);
+          --border-color: #1e293b;
+        }
+
+        #ping-data-raw {
+          background-color: #0f172a;
+        }
+
+        #ping-data-raw tbody tr:nth-child(even) {
+          background-color: #1e293b;
+        }
+
+        #ping-data-raw tbody tr:hover {
+          background-color: #2d3748;
+        }
+
+        #ping-data-raw tbody tr td:last-child {
+          color: #94a3b8;
+        }
+
+        #ping-data-raw tbody tr td:first-child {
+          color: #94a3b8;
+        }
+      }
+
+      /* Handle different column widths */
+      #ping-data-raw tr {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+      }
+
+      /* Customize column widths based on content */
+      #ping-data-raw th:nth-child(1),
+      #ping-data-raw td:nth-child(1) {
+        width: 20%; /* Timestamp - wider */
+      }
+
+      #ping-data-raw th:nth-child(2),
+      #ping-data-raw td:nth-child(2),
+      #ping-data-raw th:nth-child(3),
+      #ping-data-raw td:nth-child(3),
+      #ping-data-raw th:nth-child(4),
+      #ping-data-raw td:nth-child(4) {
+        width: 12%; /* Latency values - narrow */
+      }
+
+      #ping-data-raw th:nth-child(5),
+      #ping-data-raw td:nth-child(5),
+      #ping-data-raw th:nth-child(6),
+      #ping-data-raw td:nth-child(6) {
+        width: 12%; /* Loss and Status - narrow */
+      }
+
+      #ping-data-raw th:nth-child(7),
+      #ping-data-raw td:nth-child(7) {
+        width: 26%; /* Concerns - widest */
+      }
+
+      /* Handle text overflow in all cells */
+      #ping-data-raw td {
+        text-overflow: ellipsis;
+        overflow: hidden;
+      }
+
+      /* Maintain header styling */
+      #ping-data-raw thead tr {
+        width: 100%;
+      }
+
+      @media (max-width: 768px) {
+        #ping-data-raw {
+          max-height: 400px; /* Slightly shorter on mobile */
+        }
+
+        #ping-data-raw th,
+        #ping-data-raw td {
+          padding: 12px 15px;
+          font-size: 14px;
+        }
+      }
+      .table-controls {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="dashboard">
+      <div class="header">
+        <div class="cont-box">
+          <div class="logo-wrapper">
+            <img
+              src="{{ url_for('static', filename='logo.svg') }}"
+              alt="Zipline Logo"
+            />
+          </div>
+          <h1 class="title">CCC - {{ country }}</h1>
+        </div>
+        <div class="cont-box">
+          <div class="refresh-info" style="margin-right: 10px">
+            Last updated: <span id="last-update">--</span>
+          </div>
+          <button class="control-button" onclick="window.location.href='/'">
+            <i class="fas fa-arrow-left"></i> Back
+          </button>
+        </div>
+      </div>
+      <div id="error-box"></div>
+      <div style="display: flex; margin: 0; padding: 0 8px">
+        <div class="gray bubble half">
+          <table>
+            <tbody>
+              <tr>
+                <td class="right third gray noselect">Country</td>
+                <td class="mono" id="country" onclick="selectText(this)">
+                  {{ country }}
+                </td>
+              </tr>
+              <tr>
+                <td class="right third gray noselect">Partner</td>
+                <td class="mono" id="partner" onclick="selectText(this)"></td>
+              </tr>
+              <tr>
+                <td class="right third gray noselect">Domain Ext.</td>
+                <td class="mono" id="dn_ext" onclick="selectText(this)"></td>
+              </tr>
+              <tr>
+                <td class="right third gray noselect">Avg. Time</td>
+                <td class="mono" id="avg_time" onclick="selectText(this)"></td>
+              </tr>
+              <tr>
+                <td class="right third gray noselect">Status</td>
+                <td class="mono" id="status" onclick="selectText(this)"></td>
+              </tr>
+              <tr>
+                <td class="right third gray noselect">Stale</td>
+                <td class="mono" id="stale" onclick="selectText(this)"></td>
+              </tr>
+              <tr>
+                <td class="right third gray noselect">Latency High</td>
+                <td
+                  class="mono"
+                  id="is_high_latency"
+                  onclick="selectText(this)"
+                ></td>
+              </tr>
+              <tr>
+                <td class="right third gray noselect">Timestamp</td>
+                <td class="mono" id="timestamp" onclick="selectText(this)"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="gray bubble half" id="exceptions_bubble">
+          <table id="exceptions">
+            <tr>
+              <td class="contrast noselect">Exceptions</td>
+            </tr>
+            <tr>
+              <td class="white" onclick="selectText(this)">Nominal</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-header">
+          <h2>Status History</h2>
+          <div class="chart-controls">
+            <div class="time-filter">
+              <select id="time-range">
+                <option value="1h">Last 1 hour</option>
+                <option value="12h">Last 12 hours</option>
+                <option value="24h">Last 24 hours</option>
+                <option value="7d">Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="custom">Custom range</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <div id="statusChart"></div>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <div class="header">
+          <h2>Recent Ping Results</h2>
+          <div class="table-controls">
+            <div class="table-time-filter">
+              <select id="table-time-range">
+                <option value="1h">Last 1 hour</option>
+                <option value="12h">Last 12 hours</option>
+                <option value="24h">Last 24 hours</option>
+                <option value="7d">Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="custom">Custom range</option>
+              </select>
+            </div>
+            <button id="exportData" class="control-button">
+              <i class="fas fa-download"></i>
+              Export
+            </button>
+          </div>
+        </div>
+
+        <table id="ping-data-raw">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Avg Latency (ms)</th>
+              <th>Min (ms)</th>
+              <th>Max (ms)</th>
+              <th>Packet Loss (%)</th>
+              <th>Status</th>
+              <th>Exceptions</th>
+            </tr>
+          </thead>
+          <tbody id="data-table"></tbody>
+        </table>
+
+        <div id="exportModal" class="modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3>Export Data</h3>
+            </div>
+            <div class="modal-body">
+              <div class="export-options">
+                <div class="export-section">
+                  <h4>Time Range</h4>
+                  <div class="time-range-options">
+                    <select id="export-time-range">
+                      <option value="1h">Last 1 hour</option>
+                      <option value="12h">Last 12 hours</option>
+                      <option value="24h" selected>Last 24 hours</option>
+                      <option value="7d">Last 7 days</option>
+                      <option value="30d">Last 30 days</option>
+                      <option value="custom">Custom range</option>
+                    </select>
+                  </div>
+                  <div
+                    id="export-custom-range"
+                    style="display: none; margin-top: 10px"
+                  >
+                    <div class="datetime-inputs">
+                      <label>Start Date/Time:</label>
+                      <input
+                        type="datetime-local"
+                        id="export-start-datetime"
+                        class="datetime-input"
+                      />
+                      <label>End Date/Time:</label>
+                      <input
+                        type="datetime-local"
+                        id="export-end-datetime"
+                        class="datetime-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div class="export-format" style="margin-top: 20px">
+                  <h4>Export Format</h4>
+                  <select id="export-format">
+                    <option value="csv">CSV</option>
+                    <option value="json">JSON</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="modal-btn modal-btn-secondary" id="cancelExport">
+                Cancel
+              </button>
+              <button class="modal-btn modal-btn-primary" id="confirmExport">
+                Export
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Date Range Modal for Chart (existing) -->
+        <div id="dateRangeModal" class="modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3>Select Date Range</h3>
+            </div>
+            <div class="modal-body">
+              <div class="datetime-inputs">
+                <input
+                  type="datetime-local"
+                  id="start-datetime"
+                  class="datetime-input"
+                />
+                <input
+                  type="datetime-local"
+                  id="end-datetime"
+                  class="datetime-input"
+                />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button
+                class="modal-btn modal-btn-secondary"
+                id="cancelDateRange"
+              >
+                Cancel
+              </button>
+              <button class="modal-btn modal-btn-primary" id="applyDateRange">
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- Date Range Modal for Table (existing) -->
+        <div id="table-dateRangeModal" class="modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3>Select Date Range</h3>
+            </div>
+            <div class="modal-body">
+              <div class="datetime-inputs">
+                <input
+                  type="datetime-local"
+                  id="table-start-datetime"
+                  class="datetime-input"
+                />
+                <input
+                  type="datetime-local"
+                  id="table-end-datetime"
+                  class="datetime-input"
+                />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button
+                class="modal-btn modal-btn-secondary"
+                id="table-cancelDateRange"
+              >
+                Cancel
+              </button>
+              <button
+                class="modal-btn modal-btn-primary"
+                id="table-applyDateRange"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      let chart = null;
+      const COUNTRY_COLORS = {
+        'Rwanda': "#00b894",
+        'Ghana': "#fdcb6e",
+        'Nigeria': "#0984e3",
+        'Ivory Coast': "#d63031",
+        'Kenya': "#6c5ce7",
+      };
+
+      async function initializeDashboard() {
+        await updateServerStatus();
+        initializeChart();
+        await updateChart();
+        await updateTable();
+        setupEventListeners();
+        setInterval(updateServerStatus, 15000);
+        setInterval(updateChart, 15000);
+        setInterval(updateTable, 15000);
+      }
+
+      async function updateServerStatus() {
+        try {
+          const response = await fetch("/api/server/info/{{ country }}");
+          const server = await response.json();
+
+          $("#country").text(server.country);
+          $("#partner").text(server.partner);
+          $("#dn_ext").text(server.dn_ext);
+          $("#avg_time").text(server.latency);
+          $("#status").text(server.status);
+          $("#is_high_latency").text(server.is_high_latency);
+          $("#stale").text(server.stale);
+          $("#timestamp").text(server.lastCheck);
+
+          var contents =
+            "<tr><td class='contrast noselect'>Exceptions</td></tr>";
+          let all_exceptions = server.exceptions;
+          all_exceptions.forEach(function (exception) {
+            let name = exception.name;
+            let detail = exception.detail;
+            contents +=
+              "<tr><td><div style='margin-bottom:4px;' class='white mono' onclick='selectText(this)'>" +
+              name +
+              ": " +
+              "<span style='font-weight: bold; font-size: 16px;' onclick='selectText(this)'>" +
+              detail +
+              "</span></div></td></tr>";
+          });
+          if (server.status == "Inactive") {
+            contents +=
+              "<tr><td class='white' onclick='selectText(this)'>Failed to reach Server: No Data</td></tr>";
+            $("#exceptions_bubble").removeClass("yellow");
+            $("#exceptions_bubble").addClass("red");
+            $("#exceptions").html(contents);
+          } else if (server.is_high_latency) {
+            $("#exceptions_bubble").removeClass("red");
+            $("#exceptions_bubble").addClass("yellow");
+          } else if (all_exceptions.length > 0) {
+            $("#exceptions_bubble").removeClass("red");
+            $("#exceptions_bubble").addClass("yellow");
+            $("#exceptions").html(contents);
+          } else {
+            contents +=
+              "<tr><td class='white' onclick='selectText(this)'>Nominal</td></tr>";
+            $("#exceptions_bubble").removeClass("red");
+            $("#exceptions_bubble").removeClass("yellow");
+            $("#exceptions").html(contents);
+          }
+
+          document.getElementById("last-update").textContent =
+            new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+        } catch (error) {
+          console.error("Error updating server status:", error);
+          document.getElementById("error-box").innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #d63031;">
+                        <h2 style="margin-top: 10px; padding: 6px 12px; background: red; color: white;">Error Loading Data!</h2>
+                        <p>Could not fetch realtime SIP trunk information.<br>Contact Support if this persists!</p>
+                    </div>
+                `;
+          var contents =
+            "<tr><td class='contrast noselect'>Exceptions</td></tr>";
+          contents +=
+            "<tr><td class='white' onclick='selectText(this)'>Error updating server status.</td></tr>";
+        contents +=
+            "<tr><td class='white' onclick='selectText(this)'>Realtime Datastream Lost.</td></tr>";
+          $("#exceptions_bubble").addClass("red");
+          $("#exceptions_bubble").removeClass("yellow");
+          $("#exceptions").html(contents);
+
+          $("#country").text("null");
+          $("#partner").text("null");
+          $("#dn_ext").text("null");
+          $("#avg_time").text("null");
+          $("#status").text("null");
+          $("#is_high_latency").text("null");
+          $("#stale").text("null");
+          $("#timestamp").text("null");
+        }
+      }
+
+      function selectText(ele) {
+        console.log(ele.textContent);
+      }
+
+      function initializeChart() {
+        const options = {
+          series: [],
+          chart: {
+            type: "line",
+            height: "100%",
+            animations: {
+              enabled: true,
+              easing: "linear",
+              dynamicAnimation: {
+                speed: 1000,
+              },
+            },
+            toolbar: {
+              show: true,
+              tools: {
+                download: true,
+                selection: true,
+                zoom: true,
+                zoomin: true,
+                zoomout: true,
+                pan: true,
+                reset: true,
+              },
+            },
+            connectNullData: false,
+          },
+          stroke: {
+            curve: "straight",
+            width: 2,
+          },
+          markers: {
+            size: 0,
+            hover: {
+              size: 6,
+            },
+          },
+          xaxis: {
+            type: "datetime",
+            labels: {
+              datetimeUTC: false,
+              datetimeFormatter: {
+                year: "yyyy",
+                month: "MMM yyyy",
+                day: "dd MMM",
+                hour: "HH:mm",
+              },
+            },
+          },
+          yaxis: {
+            title: {
+              text: "Latency (ms)",
+            },
+            min: 0,
+          },
+          tooltip: {
+            shared: true,
+            x: {
+              format: "dd MMM yyyy HH:mm",
+            },
+            y: {
+              formatter: function (value) {
+                return value === null
+                  ? "No response"
+                  : value.toFixed(1) + " ms";
+              },
+            },
+          },
+          legend: {
+            position: "top",
+            horizontalAlign: "left",
+          },
+          grid: {
+            padding: {
+              right: 30,
+            },
+          },
+          annotations: {
+            yaxis: [
+              {
+                y: 400,
+                borderColor: "black",
+                label: {
+                  text: "High Latency",
+                  style: {
+                    color: "black",
+                  },
+                },
+                strokeDashArray: 5,
+              },
+            ],
+          },
+        };
+
+        chart = new ApexCharts(document.querySelector("#statusChart"), options);
+        chart.render();
+      }
+
+      async function updateChart() {
+        try {
+          let timeRange = document.getElementById("time-range").value;
+          let params = new URLSearchParams();
+
+          if (timeRange === "custom") {
+            const startDate = document.getElementById("start-datetime").value;
+            const endDate = document.getElementById("end-datetime").value;
+            if (!startDate || !endDate) {
+              console.error("Custom date range is missing start or end date");
+              return;
+            }
+            params.append("start", startDate);
+            params.append("end", endDate);
+            params.append("range", "custom");
+          } else {
+            params.append("range", timeRange);
+          }
+
+          params.append("country", "{{ country }}");
+
+          const response = await fetch(`/api/ping-data?${params}`);
+          const data = await response.json();
+          let selectedServers = ["{{ country }}"];
+
+          const series = Object.keys(data)
+            .filter((country) => selectedServers.includes(country))
+            .map((country) => {
+              const rawData = data[country].latency.map((value, index) => ({
+                x: new Date(data[country].timestamps[index]).getTime(),
+                y: value,
+              }));
+
+              const processedData = [];
+              for (let i = 0; i < rawData.length; i++) {
+                if (i > 0) {
+                  const timeDiff = rawData[i].x - rawData[i - 1].x;
+                  if (timeDiff > 5 * 60 * 1000) {
+                    processedData.push({ x: rawData[i].x - 1, y: null });
+                  }
+                }
+                processedData.push(rawData[i]);
+              }
+
+              return {
+                name: country,
+                data: processedData,
+                color: COUNTRY_COLORS[country],
+              };
+            });
+
+          chart.updateSeries(series);
+
+          const timestamps = Object.values(data)[0]?.timestamps || [];
+          const gapAnnotations = [];
+          for (let i = 1; i < timestamps.length; i++) {
+            const currentTime = new Date(timestamps[i]).getTime();
+            const prevTime = new Date(timestamps[i - 1]).getTime();
+            if (currentTime - prevTime > 5 * 60 * 1000) {
+              gapAnnotations.push({
+                x: prevTime,
+                x2: currentTime,
+                fillColor: "#696969",
+                label: {
+                  text: "No Data",
+                  style: {
+                    color: "#000",
+                    background: "#fff",
+                  },
+                },
+              });
+            }
+          }
+
+          const unit = getTimeUnit();
+          const format =
+            unit === "hour" ? "HH:mm" : unit === "day" ? "dd MMM" : "MMM yyyy";
+
+          chart.updateOptions({
+            annotations: {
+              xaxis: gapAnnotations,
+              yaxis: [
+                {
+                  y: 400,
+                  borderColor: "black",
+                  label: {
+                    text: "High Latency",
+                    style: {
+                      color: "black",
+                    },
+                  },
+                  strokeDashArray: 5,
+                },
+              ],
+            },
+            xaxis: {
+              labels: {
+                datetimeFormatter: {
+                  hour: format,
+                },
+              },
+            },
+          });
+        } catch (error) {
+          console.error("Error updating chart:", error);
+        }
+      }
+
+      function getTimeUnit() {
+        const range = document.getElementById("time-range").value;
+
+        if (range === "custom") {
+          const startDate = new Date(
+            document.getElementById("start-datetime").value
+          );
+          const endDate = new Date(
+            document.getElementById("end-datetime").value
+          );
+          const diffHours = (endDate - startDate) / (1000 * 60 * 60);
+
+          if (diffHours <= 48) {
+            return "hour";
+          } else if (diffHours <= 30 * 24) {
+            return "day";
+          } else {
+            return "month";
+          }
+        }
+
+        return range === "1h"
+          ? "hour"
+          : range === "12h"
+          ? "hour"
+          : range === "24h"
+          ? "hour"
+          : range === "7d"
+          ? "day"
+          : "month";
+      }
+
+      async function updateTable() {
+        try {
+          let timeRange = document.getElementById("table-time-range").value;
+          let params = new URLSearchParams();
+
+          if (timeRange === "custom") {
+            const startDate = document.getElementById("start-datetime").value;
+            const endDate = document.getElementById("end-datetime").value;
+            if (!startDate || !endDate) {
+              console.error("Custom date range is missing start or end date");
+              return;
+            }
+            params.append("start", startDate);
+            params.append("end", endDate);
+            params.append("range", "custom");
+          } else {
+            params.append("range", timeRange);
+          }
+
+          params.append("country", "{{ country }}");
+
+          const response = await fetch(`/api/get-server-ping-data?${params}`);
+          const data = await response.json();
+
+          let tableRows = "";
+          data.forEach((row) => {
+            tableRows += "<tr><td>" + row.timestamp + "</td>";
+            tableRows += "<td>" + row.avg_time + "</td>";
+            tableRows += "<td>" + row.min_time + "</td>";
+            tableRows += "<td>" + row.max_time + "</td>";
+            tableRows +=
+              '<td data-value="' +
+              row.loss_percentage +
+              '">' +
+              row.loss_percentage +
+              "</td>";
+            if (row.success) {
+              tableRows += '<td class="active-status">Active</td>';
+            } else {
+              tableRows += '<td class="inactive-status">Inactive</td>';
+            }
+            tableRows +=
+              '<td class="' + "active-status"
+                ? row.success
+                : "inactive-status" + '">Active'
+                ? row.success
+                : "Inactive" + "</td>";
+            tableRows += "<td>" + row.concerns + "</td></tr>";
+          });
+
+          $("#data-table").html(tableRows);
+          $("#data-table").scrollTop($("#data-table").scrollHeight);
+        } catch (error) {
+          console.error("Error fetching logs:", error);
+        }
+      }
+
+      function setupEventListeners() {
+        document
+          .getElementById("time-range")
+          .addEventListener("change", function () {
+            if (this.value === "custom") {
+              document.getElementById("dateRangeModal").style.display = "block";
+            } else {
+              updateChart();
+            }
+          });
+
+        document
+          .getElementById("table-time-range")
+          .addEventListener("change", function () {
+            if (this.value === "custom") {
+              document.getElementById("dateRangeModal").style.display = "block";
+            } else {
+              updateTable();
+            }
+          });
+
+        document
+          .getElementById("applyDateRange")
+          .addEventListener("click", () => {
+            const start = document.getElementById("start-datetime").value;
+            const end = document.getElementById("end-datetime").value;
+            if (!start || !end) return;
+            updateChart();
+            document.getElementById("dateRangeModal").style.display = "none";
+          });
+
+        document
+          .getElementById("table-applyDateRange")
+          .addEventListener("click", () => {
+            const start = document.getElementById("table-start-datetime").value;
+            const end = document.getElementById("table-end-datetime").value;
+            if (!start || !end) return;
+            updateTable();
+            document.getElementById("table-dateRangeModal").style.display =
+              "none";
+          });
+
+        document
+          .getElementById("cancelDateRange")
+          .addEventListener("click", () => {
+            document.getElementById("dateRangeModal").style.display = "none";
+            document.getElementById("time-range").value = "24h";
+          });
+
+        document
+          .getElementById("table-cancelDateRange")
+          .addEventListener("click", () => {
+            document.getElementById("table-dateRangeModal").style.display =
+              "none";
+            document.getElementById("table-time-range").value = "1h";
+          });
+      }
+
+      // Initialize export modal functionality and event listeners.
+      function initializeExportModal() {
+        const exportModal = document.getElementById("exportModal");
+        const exportTimeRange = document.getElementById("export-time-range");
+        const exportCustomRange = document.getElementById(
+          "export-custom-range"
+        );
+        const exportStartDatetime = document.getElementById(
+          "export-start-datetime"
+        );
+        const exportEndDatetime = document.getElementById(
+          "export-end-datetime"
+        );
+        const exportSelectAll = document.getElementById("export-select-all");
+        const cancelExportBtn = document.getElementById("cancelExport");
+        const confirmExportBtn = document.getElementById("confirmExport");
+
+        // Set default custom range dates (last 24 hours)
+        const now = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(now.getDate() - 1);
+        exportEndDatetime.value = now.toISOString().slice(0, 16);
+        exportStartDatetime.value = yesterday.toISOString().slice(0, 16);
+
+        document
+          .getElementById("exportData")
+          .addEventListener("click", async () => {
+            exportModal.style.display = "block";
+          });
+
+        exportTimeRange.addEventListener("change", function () {
+          exportCustomRange.style.display =
+            this.value === "custom" ? "block" : "none";
+        });
+
+        cancelExportBtn.addEventListener("click", () => {
+          exportModal.style.display = "none";
+        });
+
+        confirmExportBtn.addEventListener("click", async () => {
+          await exportData();
+          exportModal.style.display = "none";
+        });
+
+        window.addEventListener("click", (event) => {
+          if (event.target === exportModal) {
+            exportModal.style.display = "none";
+          }
+        });
+      }
+      async function exportData() {
+        try {
+          const timeRange = document.getElementById("export-time-range").value;
+          const format = document.getElementById("export-format").value;
+          let params = new URLSearchParams();
+          params.append("format", format);
+
+          if (timeRange === "custom") {
+            const startDate = document.getElementById(
+              "export-start-datetime"
+            ).value;
+            const endDate = document.getElementById(
+              "export-end-datetime"
+            ).value;
+            if (!startDate || !endDate) {
+              alert("Please select both start and end dates for custom range");
+              return;
+            }
+            params.append("start", startDate);
+            params.append("end", endDate);
+            params.append("range", "custom");
+          } else {
+            params.append("range", timeRange);
+          }
+
+          params.append("country", "{{ country }}");
+
+          const response = await fetch(`/api/export-data?${params.toString()}`);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const filename = `server_data_${new Date()
+            .toISOString()
+            .slice(0, 10)}.${format}`;
+          if (format === "csv") {
+            const text = await response.text();
+            downloadFile(text, filename, "text/csv");
+          } else {
+            const data = await response.json();
+            downloadFile(
+              JSON.stringify(data, null, 2),
+              filename,
+              "application/json"
+            );
+          }
+        } catch (error) {
+          console.error("Error exporting data:", error);
+          alert("Error exporting data. Please try again.");
+        }
+      }
+      function downloadFile(content, filename, contentType) {
+        const blob = new Blob([content], { type: contentType });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        //initializeChart();
+        initializeExportModal();
+        initializeDashboard().catch((error) => {
+          console.error("Dashboard initialization failed:", error);
+          document.getElementById("error-box").innerHTML = `
+                <div style="text-align: center; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <h2 style="color: #d63031; margin-bottom: 10px;">Dashboard Error</h2>
+                    <p>There was a problem loading the dashboard. Please try refreshing the page.</p>
+                    <button onclick="location.reload()" style="margin-top: 15px; padding: 8px 16px; background: #0984e3; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        Refresh Page
+                    </button>
+                </div>
+            `;
+        });
+      });
+    </script>
+  </body>
+</html>
